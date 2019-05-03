@@ -212,9 +212,9 @@ class CafeCategoryController extends Controller
                         //notify cafe members
                         foreach($cafeMembers as $cafeMember){
                             if($cafeMember->user()->first()->id == Auth::guard('api')->id()) {
-                                $notify->createNotification($cafeMember->user()->first()->id,"'".$category->name."' was created by you.",'/cafe/about?cafe='.$cafe->id);
+                                $notify->createNotification($cafeMember->user()->first()->id,"category",$category->id,"'".$category->name."' was created by you.",'/cafe/about?cafe='.$cafe->id);
                             }else{
-                                $notify->createNotification($cafeMember->user()->first()->id,"'".$category->name."' was created.",'/cafe/about?cafe='.$cafe->id);
+                                $notify->createNotification($cafeMember->user()->first()->id,"category",$category->id,"'".$category->name."' was created.",'/cafe/about?cafe='.$cafe->id);
                             }
                         }
                         return response()->json([

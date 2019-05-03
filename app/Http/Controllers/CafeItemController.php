@@ -215,9 +215,9 @@ class CafeItemController extends Controller
                         //notify cafe members
                         foreach($cafeMembers as $cafeMember){
                             if($cafeMember->user()->first()->id == Auth::guard('api')->id()) {
-                                $notify->createNotification($cafeMember->user()->first()->id,"'".$item->name."' was added by you.",'/cafe/item?cafe='.$cafe->id.'&item='.$item->id);
+                                $notify->createNotification($cafeMember->user()->first()->id,"item",$item->id,"'".$item->name."' was added by you.",'/cafe/item?cafe='.$cafe->id.'&item='.$item->id);
                             }else{
-                                $notify->createNotification($cafeMember->user()->first()->id,"'".$item->name."' was added.",'/cafe/item?cafe='.$cafe->id.'&item='.$item->id);
+                                $notify->createNotification($cafeMember->user()->first()->id,"item",$item->id,"'".$item->name."' was added.",'/cafe/item?cafe='.$cafe->id.'&item='.$item->id);
                             }
                         }
                         return response()->json([

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Cafe;
 use App\Cafe_Member;
 use Illuminate\Http\Request;
+use App\Service\IndexService;
 use App\Service\NotificationService;
 use Illuminate\Support\Facades\Auth;
 
@@ -75,7 +76,7 @@ class CafeMemberController extends Controller
                             ['right','admin']
                         )->get();
                         foreach($admins as $admin) {
-                            $notifyAdmin = $notify->createNotification($admin->user()->first()->id,$user->username.' sent an employment request.','/cafe/request?cafe='.$cafe->id);
+                            $notifyAdmin = $notify->createNotification($admin->user()->first()->id,"cafeMember",$cafeMember->id,$user->username.' sent an employment request.','/cafe/request?cafe='.$cafe->id);
                         }
                         return response()->json(true,Response::HTTP_CREATED);
                     }else{
@@ -99,57 +100,6 @@ class CafeMemberController extends Controller
     }
 
 
-    /**
-     * confirmRequest 
-     */
-    public function confirmRequest(Request $request,NotificationService $notify) {
-        //get request
-        $membershipRequest = $request->query('joinRequest');
-        //get member
-        $cafeMember = Cafe_Member::find($membershipRequest);
-        //update member's status
-        if($cafeMember) {
-            $update = $cafeMember->update(['status'=>'confirmed']);
-            //notify the requester
-            $notify->createNotification($update->user()->first()->id,'Congratulations! you have successfully joined '.$update->cafe()->first()->name,'/cafe/request?user='.$update->user()->first()->id);
-            return response()->json([
-                'details' => [
-                    'user' => $cafeMember->user()->first(),
-                    'cafe' => $cafeMember->cafe()->first(),
-                    'other' => $cafeMember
-                ] 
-            ],Response::HTTP_CREATED);
-        }
-        return response()->json([
-            'error' => 'Resource not found.'
-        ],Response::HTTP_BAD_REQUEST);
-    }
-
-    /**
-     * rejectRequest
-     */
-    public function rejectRequest(Request $request,NotificationService $notify) {
-        //get request
-        $membershipRequest = $request->query('request');
-        //get member
-        $cafeMember = Cafe_Member::find($membershipRequest);
-        //update member's status
-        if($cafeMember) {
-            $update = $cafeMember->update(['status' => 'rejected']);
-            //notify the requester
-            $notify->createNotification($update->user()->first()->id,'Sorry! your request was declined','/cafe/request?user='.$update->user()->first()->id);
-            return response()->json([
-                'details' => [
-                    'user' => $cafeMember->user()->first(),
-                    'cafe' => $cafeMember->cafe()->first(),
-                    'other' => $cafeMember
-                ] 
-            ],Response::HTTP_CREATED);
-        }
-        return response()->json([
-            'error' => 'Resource not found.'
-        ],Response::HTTP_BAD_REQUEST);
-    }
 
     
     /**
@@ -226,6 +176,71 @@ class CafeMemberController extends Controller
         }
         return response()->json([
             'error' => 'Resource not found.'
+        ],Response::HTTP_BAD_REQUEST);
+    }
+
+
+
+
+    /**
+     * ge3t all cafe members
+     * 
+     */
+    public function CafeMembers(Request $request,IndexService $indexService) {
+        //get cafe
+        $cafe = $request->query('cafe');
+        $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
+        if($cafe) {
+            //validate user
+            if(Cafe_Member::where(
+                ['cafe',$cafe->id],
+                ['user',Auth::guard('api')->id],
+                ['status','confirmed']
+            )
+            ->first()
+            ) {
+                //get cafe members
+                $members = Cafe_Member::where(
+                    ['cafe',$cafe],
+                    ['status','confirmed']
+                )
+                ->get();
+                if($members) {
+                    //get page and start
+                    $page = $request->query('p');
+                    $start = $request->query('s');
+                    $display = 30;
+                    $arr = $indexService->pagination($page,$start,$display,$members);
+                    $p = $arr['p'];
+                    $s = $arr['s'];
+                    if($arr) {
+                        //paginate result
+                        $result = Cafe_Member::where(
+                            ['cafe',$cafe],
+                            ['status','confirmed']
+                        )
+                        ->take($display)
+                        ->skip($s)
+                        ->get();
+                        return response()->json([
+                            "result" => $result
+                        ],Response::HTTP_OK);
+                    }
+                    else{
+                        return response()->json([
+                            "error" => "Not Found!"
+                        ],Response::HTTP_BAD_REQUEST);
+                    }
+                }
+            else{
+                return response()->json([
+                    "error" => "No member yet"
+                ],Response::HTTP_NO_CONTENT);
+            }
+            }   
+        }
+        return response()->json([
+            "error" => "Resource not found"
         ],Response::HTTP_BAD_REQUEST);
     }
 }

@@ -35,6 +35,6 @@ class CreateCafeMembersTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('cafe__members');
+        Schema::dropIfExists('cafe_members');
     }
 }

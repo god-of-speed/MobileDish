@@ -16,6 +16,8 @@ class CreateNotificationsTable extends Migration
         Schema::create('notifications', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->foreign('user')->references('id')->on('users');
+            $table->string('type');
+            $table->integer('extId');
             $table->text('comment');
             $table->string('url');
             $table->boolean('status')->default(false);

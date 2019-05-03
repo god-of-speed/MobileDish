@@ -29,6 +29,6 @@ class CreateCafeMenusTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('cafe__menus');
+        Schema::dropIfExists('cafe_menus');
     }
 }

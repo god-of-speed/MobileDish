@@ -5,9 +5,11 @@ use App\Notification;
 
 class NotificationService {
     //create notification
-    public function createNotification($user,$comment,$url) {
+    public function createNotification($user,$type,$extId,$comment,$url) {
         $notification = Notification::create([
             'user' => $user,
+            "type" => $type,
+            "extId" => $extId,
             'comment' => $comment,
             'url' => $url
         ]);

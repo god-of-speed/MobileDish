@@ -17,11 +17,12 @@ class CreateCafeCustomRequestsTable extends Migration
             $table->bigIncrements('id');
             $table->foreign('cafe')->references('id')->on('cafes');
             $table->foriegn('user')->references('id')->on('users');
-            $table->text('request');
+            $table->text('customRequest');
             $table->string('price');
-            $table->string('status')->default('pending');
-            $table->string('deliveryType');
-            $table->foreign('deliverer')->references('id')->on('deliverers');
+            $table->string('duration');
+            $table->string('discount')->default(0);
+            $table->string('userStatus')->default('start');
+            $table->string('cafeStatus')->default('start');
             $table->timestamps();
         });
     }

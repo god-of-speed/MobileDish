@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class CreateCafeCategoriesTable extends Migration
+class CreateCafeTagsTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,12 +13,10 @@ class CreateCafeCategoriesTable extends Migration
      */
     public function up()
     {
-        Schema::create('cafe_categories', function (Blueprint $table) {
+        Schema::create('cafe_tags', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->foreign('cafe')->references('id')->on('cafes');
-            $table->foreign('menu')->references('id')->on('cafe_menus')->nullable();
-            $table->string('name');
-            $table->text('about')->nullable();
+            $table->foreign('tag')->references('id')->on('tags');
             $table->timestamps();
         });
     }
@@ -30,6 +28,6 @@ class CreateCafeCategoriesTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('cafe__categories');
+        Schema::dropIfExists('cafe_tags');
     }
 }

@@ -8,6 +8,7 @@ use App\Cafe_Tag;
 use App\CafeItem;
 use App\Cafe_Menu;
 use App\Cafe_Member;
+use App\Notification;
 use App\Cafe_Category;
 use App\CafeCustomRequest;
 use App\Service\CafeService;
@@ -137,7 +138,7 @@ class CafeController extends Controller
             //create cafe wallet
             $cafeWallet = $cafeService->createCafeWallet($cafe);
             //notify user
-            $notify->createNotification(Auth::guard('api')->id(),$cafe->name.' was created by you.','/cafe/index?cafe='.$cafe->id);
+            $notify->createNotification(Auth::guard('api')->id(),"cafe",$cafe->id,$cafe->name.' was created by you.','/cafe/index?cafe='.$cafe->id);
             //get cafe details
             $members = Cafe_Member::where('cafe',$cafe->id)->get();
             $customRequests = CafeCustomRequest::where('cafe',$cafe->id)->get();
@@ -451,9 +452,9 @@ class CafeController extends Controller
                             ->get();
                             foreach($cafeMembers as $member) {
                                 if($member->user()->first()->id == $user->id) {
-                                    $notify->createNotification($member->user()->id,"You accepted ".$joinRequest->user()->first()->username." request to join ".$cafe->name,"/cafe/member?cafe=".$cafe->id."&member=".$joinRequest->id);
+                                    $notify->createNotification($member->user()->id,"joinRequest",$joinRequest->id,"You accepted ".$joinRequest->user()->first()->username." request to join ".$cafe->name,"/cafe/member?cafe=".$cafe->id."&member=".$joinRequest->id);
                                 }else{
-                                    $notify->createNotification($member->user()->id,$joinRequest->user()->first()->username." joined ".$cafe->name,"/cafe/member?cafe=".$cafe->id."&member=".$joinRequest->id);
+                                    $notify->createNotification($member->user()->id,"joinRequest",$joinRequest->id,$joinRequest->user()->first()->username." joined ".$cafe->name,"/cafe/member?cafe=".$cafe->id."&member=".$joinRequest->id);
                                 }
                             }
                             return response()->json(true,Response::HTTP_OK);
@@ -515,17 +516,18 @@ class CafeController extends Controller
                         ['user',$user->id],
                         ['status','confirmed']
                     )) {
-                        $update = $joinRequest->update([
-                            "status" => "declined"
-                        ]);
-                        if($update) {
-                            return response()->json(true,Response::HTTP_OK);
+                        //get notifications and delete
+                        $notifications = Notification::where(
+                            ['type','joinRequest'],
+                            ['id',$joinRequest->id]
+                        )
+                        ->get();
+                        foreach($notifications as $notify) {
+                            $notify->delete();
                         }
-                        else{
-                            return response()->json([
-                                "error" => "Internal server error"
-                            ],HTTP_INTERNAL_SERVER_ERROR);
-                        }
+                        //delete join request
+                        $joinRequest->delete();
+                        return response()->json(true,Response::HTTP_OK);
                     }
                     else{
                         return response()->json([

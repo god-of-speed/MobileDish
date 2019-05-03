@@ -24,8 +24,6 @@ class CreateCafesTable extends Migration
             $table->string('location');
             $table->string('currency');
             $table->integer('like')->default(0);
-            $table->boolean('personal_delivery')->default(false);
-            $table->boolean('moblieDish_delivery')->default(true);
             $table->softDeletes();
             $table->timestamps();
         });

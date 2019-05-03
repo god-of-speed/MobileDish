@@ -18,9 +18,13 @@ class CreateCafePurchasesTable extends Migration
             $table->foreign('cafe')->references('id')->on('cafes');
             $table->foreign('item')->references('id')->on('cafe_items');
             $table->foreign('user')->references('id')->on('user');
-            $table->string('status')->default('pending');
-            $table->string('deliveryType');
-            $table->foreign('deliverer')->references('id')->on('deliverers')->nullable();
+            $table->string('userStatus')->default('start');
+            $table->string('cafeStatus')->default('start');
+            $table->integer('quantity')->default(0);
+            $table->string('comment')->nullable();
+            $table->string('country');
+            $table->string('state');
+            $table->string('location');
             $table->timestamps();
         });
     }
