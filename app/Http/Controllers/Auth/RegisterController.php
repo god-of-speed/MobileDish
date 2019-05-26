@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Auth;
 
 use App\User;
 use Illuminate\Http\Request;
-use App\Service\UserService;
+use App\Http\Service\UserService;
 use App\Http\Controllers\Controller;
-use App\Service\NotificationService;
 use Illuminate\Support\Facades\Hash;
+use App\Http\Service\NotificationService;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Foundation\Auth\RegistersUsers;
 use Symfony\Component\HttpFoundation\Response;
@@ -69,7 +69,7 @@ class RegisterController extends Controller
     protected function create(array $data)
     {
         return User::create([
-            'name' => $data['name'],
+            'name' => strtolower($data['name']),
             'email' => $data['email'],
             'username' => $data['username'],
             'password' => Hash::make($data['password']),
@@ -98,13 +98,13 @@ class RegisterController extends Controller
         //create user
         $user = $this->create($data);
         //create an access token
-        $userToken = $user->createToken('Personal Access Token');
+        $userToken = $user->createToken('Password grant client');
         $token = $userToken->token;
         $token->save();
 
         //create wallet
         $userWallet = $userService->createWallet($user);
-        $notify = $notify->createNotification($user->id,'Welcome to MobileDish, we hope you get served right.','/user/index?user='.$user->id);
+        $notify = $notify->createNotification($user->id,null,null,'Welcome to MobileDish, we hope you get served right.','');
 
         return response()->json([
             'access_token' => $userToken->accessToken,

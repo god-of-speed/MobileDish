@@ -1,11 +1,11 @@
 <?php
-namespace App\Service;
+namespace App\Http\Service;
 
 use App\Notification;
 
 class NotificationService {
     //create notification
-    public function createNotification($user,$type,$extId,$comment,$url) {
+    public function createNotification($user,$type = null,$extId = null,$comment,$url) {
         $notification = Notification::create([
             'user' => $user,
             "type" => $type,

@@ -15,13 +15,13 @@ class CreateNotificationsTable extends Migration
     {
         Schema::create('notifications', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('user')->unsigned();
             $table->foreign('user')->references('id')->on('users');
-            $table->string('type');
-            $table->integer('extId');
+            $table->string('type')->nullable();
+            $table->integer('extId')->nullable();
             $table->text('comment');
             $table->string('url');
             $table->boolean('status')->default(false);
-            $table->softDeletes();
             $table->timestamps();
         });
     }

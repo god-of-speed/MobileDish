@@ -3,16 +3,78 @@
 namespace App\Http\Controllers;
 
 use App\Cafe;
+use App\User;
 use App\CafePurchase;
 use App\Notification;
 use App\CafeCustomRequest;
 use Illuminate\Http\Request;
-use App\Service\IndexService;
+use App\Http\Service\IndexService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
 {
+
+
+    /**
+     * 
+     * verify user by email
+     */
+    public function verifyUser(Request $request) {
+        //verify user by mail
+        $user = Auth::guard('api')->user();
+        if($user) {
+            //set content
+            $content = [
+                "user" => $user,
+                "url" => "http://www.mobileDish.com/user/verified?email=".$user->email
+            ];
+            $mail = Mail::send(new VerifyUserEmail($content));
+            if($mail) {
+                return response()->json(true,Response::HTTP_OK);
+            }
+            else{
+                return response()->json([
+                    "error" => "Internal server error"
+                ],Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+        }
+        else{
+            return response()->json([
+                "error" => "Unauthorized"
+            ],Response::HTTP_UNAUTHORIZED);
+        }
+    }
+
+
+
+
+    public function verifiedUser(Request $request) {
+        //get email
+        $email = $request->query('email');
+        //get user with email
+        $user = User::where('email',$email)->first();
+        if($user) {
+            //get current datetime
+            $now = new DateTime();
+            //update user
+            $update = $user->update([
+                "email_verified"
+            ]);
+        }
+        else{
+            return response()->json([
+                "error" => "Unauthorized"
+            ],Response::HTTP_UNAUTHORIZED);
+        }
+    }
+
+
+
+
+
+
     /**
      * display user
      */
@@ -35,7 +97,7 @@ class UserController extends Controller
     /**
      * display user order
      */
-    public function pendingPurchase(Request $request,IndexService $indexService) {
+    public function userPendingPurchase(Request $request,IndexService $indexService) {
         //get user
         $user = Auth::guard('api')->user();
         //get page and statrt
@@ -44,23 +106,26 @@ class UserController extends Controller
         $display = 30;
         if($user) {
             //get all pending purchases
-            $purchases = CafePurchase::where(
+            $purchases = CafePurchase::where([
                 ['user',$user->id],
                 ['userStatus','!=','end'],
                 ['userStatus',"!=","cancel"],
                 ['cafeStatus','!=','end'],
                 ['cafeStatus',"!=","cancel"]
-            )
+            ])
             ->orderBy('created_at','asc')
             ->get();
             //get page and start
             $arr = $indexService->pagination($page,$start,$display,$purchases);
             $p = $arr['p'];
             $s = $arr['s'];
-            $result = CafePurchase::where(
+            $result = CafePurchase::where([
                 ['user',$user->id],
-                ['status','!=','end']
-            )
+                ['userStatus','!=','end'],
+                ['userStatus',"!=","cancel"],
+                ['cafeStatus','!=','end'],
+                ['cafeStatus',"!=","cancel"]
+            ])
             ->orderBy('created_at','asc')
             ->take($display)
             ->skip($s)
@@ -119,7 +184,7 @@ class UserController extends Controller
     /**
      * store custom request
      */
-    public function store(Request $request) {
+    public function storeCustomRequest(Request $request) {
         //get user
         $user = Auth::guard('api')->user();
         if($user) {
@@ -317,10 +382,10 @@ class UserController extends Controller
             $start = $request->query('s');
             $display = 30;
             //get user latest notification
-            $notifications = Notification::where(
+            $notifications = Notification::where([
                 ['user',$user->id],
                 ['status',false]
-            )
+            ])
             ->orderBy('created_at','desc')
             ->get();
             if($notifications) {
@@ -328,10 +393,10 @@ class UserController extends Controller
                 $arr = $indexService->pagination($page,$start,$display,$notifications);
                 $p = $arr['p'];
                 $s = $arr['s'];
-                $result = Notification::where(
+                $result = Notification::where([
                     ['user',$user->id],
                     ['status',false]
-                )
+                ])
                 ->orderBy('created_at','desc')
                 ->take($display)
                 ->skip($s)
@@ -350,6 +415,153 @@ class UserController extends Controller
             return response()->json([
                 "error" => "Unauthorized"
             ],Response::HTTP_UNAUTHORIZED);
+        }
+    }
+
+
+
+
+    /**
+     * user purchase
+     */
+    public function createUserPurchase(Request $request) {
+        //get user
+        $user = Auth::guard('api')->user();
+        if($user) {
+            return response()->json(true,Response::HTTP_OK);
+        }
+        else{
+            return response()->json(false,Response::HTTP_UNAUTHORIZED);
+        }
+    }
+
+
+
+
+    /**
+     * store purchase
+     */
+    public function userSingleStorePurchase(Request $request,NotificationService $notify) {
+        //get cafe
+        $cafe = $request->query('cafe');
+        $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
+        if($cafe) {
+            //get item
+            $item = $request->query('item');
+            $item = $item == null && !is_int($item) ? false : CafeItem::find($item);
+            if($item) {
+                //get user
+                $user = Auth::guard('api')->user();
+                if($user) {
+                    //get data
+                    $data = $request->only('location','state','country');
+                    //save purchase
+                    $purchase = CafePurchase::create([
+                        "cafe" => $cafe->id,
+                        "item" => $item->id,
+                        "user" => $user->id,
+                        "quantity" => 1,
+                        "location" => $data['location'],
+                        "country" => $data['country'],
+                        "state" => $data['state']
+                    ]);
+                    if($purchase) {
+                        //get cafe members
+                        $members = Cafe_Member::where(
+                            ['cafe',$cafe->id],
+                            ['status',"confirmed"]
+                        )
+                        ->get();
+                        foreach($members as $member) {
+                            $notify->createNotification($member->user()->first()->id,"purchase",$purchase->id,$purchase->user()->first()->username." purchased ".$purchase->quantity." of ".$purchase->item()->first()->name,"/cafe/purchase?cafe=".$purchase->cafe()->first()->id);
+                        }
+                        return response()->json(true,Response::HTTP_CREATED);
+                    }
+                    else{
+                        return response()->json([
+                            "error" => "Internal server error"
+                        ],Response::HTTP_INTERNAL_SERVER_ERROR);
+                    }
+                }
+                else{
+                    return response()->json([
+                        "error" => "Unauthorized"
+                    ],Response::HTTP_UNAUTHORIZED);
+                }
+            }
+            else{
+                return response()->json([
+                    "error" => "Resource not found"
+                ],Response::HTTP_BAD_REQUEST);
+            } 
+        }
+        else{
+            return response()->json([
+                "error" => "Resource not found"
+            ],Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+
+
+
+    /**
+     * change purchase status
+     */
+    public function changeUserPurchaseStatus(Request $request) {
+        //get purchase
+        $purchase = $request->query('purchase');
+        $purchase = $purchase == null && !is_int($purchase) ? false : CafePurchase::find($purchase);
+        if($purchase) {
+            //get user
+            $user = Auth::guard('api')->user();
+            if($user) {
+                //get status
+                $status = $request->query('status');
+                if($status == "end") {
+                    //update purchase
+                    $update = $purchase->update(
+                        ['status','end']
+                    );
+                    if($update) {
+                        return response()->json(true,Response::HTTP_OK);
+                    }
+                    else{
+                        return response()->json([
+                            "error" => "Internal server error"
+                        ],Response::HTTP_INTERNAL_SERVER_ERROR);
+                    }
+                }
+                elseif($status == "cancel") {
+                    //update purchase
+                    $update = $purchase->update(
+                        ['status','cancel']
+                    );
+                    if($update) {
+                        return response()->json(true,Response::HTTP_OK);
+                    }
+                    else{
+                        return response()->json([
+                            "error" => "Internal server error"
+                        ],Response::HTTP_INTERNAL_SERVER_ERROR);
+                    }
+                }
+                else{
+                    return response()->json([
+                        "error" => "Bad request"
+                    ],Response::HTTP_BAD_REQUEST);
+                }
+            }
+            else{
+                return response()->json([
+                    "error" => "Unauthorized"
+                ],Response::HTTP_UNAUTHORIZED);
+            }
+        }
+        else{
+            return response()->json([
+                "error" => "Resource not found"
+            ],Response::HTTP_BAD_REQUEST);
         }
     }
 }

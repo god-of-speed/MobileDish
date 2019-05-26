@@ -13,13 +13,13 @@ class CreateFavouritesTable extends Migration
      */
     public function up()
     {
-        Schema::create('favourites', function (Blueprint $table) {
+        Schema::create('favourite_cafes', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('user')->unsigned();
+            $table->bigInteger('cafe')->unsigned();
             $table->foreign('user')->references('id')->on('users');
             $table->foreign('cafe')->references('id')->on('cafes');
-            $table->foreign('menu')->references('id')->on('cafe_menus')->nullable();
-            $table->foreign('category')->references('id')->on('cafe_categories')->nullable();
-            $table->string('value');
+            $table->integer('value')->default(0);
             $table->timestamps();
         });
     }

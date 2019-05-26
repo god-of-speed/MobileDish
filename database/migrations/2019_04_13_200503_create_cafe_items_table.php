@@ -15,9 +15,12 @@ class CreateCafeItemsTable extends Migration
     {
         Schema::create('cafe_items', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('cafe')->unsigned();
+            $table->bigInteger('menu')->unsigned()->nullable();
+            $table->bigInteger('category')->unsigned()->nullable();
             $table->foreign('cafe')->references('id')->on('cafes');
-            $table->foreign('menu')->references('id')->on('cafe_menus')->nullable();
-            $table->foreign('category')->references('id')->on('cafe_categories')->nullable();
+            $table->foreign('menu')->references('id')->on('cafe_menus');
+            $table->foreign('category')->references('id')->on('cafe_categories');
             $table->string('name');
             $table->string('price');
             $table->string('oldPrice')->nullable();

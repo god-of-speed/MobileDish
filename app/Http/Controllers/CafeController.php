@@ -4,21 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Tag;
 use App\Cafe;
-use App\Cafe_Tag;
+use App\CafeTag;
 use App\CafeItem;
-use App\Cafe_Menu;
-use App\Cafe_Member;
+use App\CafeMenu;
+use App\CafeMember;
+use App\CafeCategory;
 use App\Notification;
-use App\Cafe_Category;
 use App\CafeCustomRequest;
-use App\Service\CafeService;
 use Illuminate\Http\Request;
-use App\Service\IndexService;
-use App\Service\SecurityService;
-use App\Service\CafeWalletService;
-use App\Service\NotificationService;
+use App\Http\Service\CafeService;
+use App\Http\Service\IndexService;
+use App\Http\Service\UploadService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use App\Http\Service\NotificationService;
 use Symfony\Component\HttpFoundation\Response;
 
 class CafeController extends Controller
@@ -86,9 +85,11 @@ class CafeController extends Controller
     /**
      * store cafe
     */
-    public function store(Request $request,NotificationService $notify,CafeService $cafeService) {
+    public function store(Request $request,UploadService $uploadService,NotificationService $notify,CafeService $cafeService) {
+        //get user
+        $user = Auth::guard('api')->user();
         //get request data
-        $data = $request->only('name','country','state','location','currency','tags');
+        $data = $request->only('name','country','state','location','currency','tags','image');
         //validate data
         $request->validate([
             'name' => ['required','string','max:255'],
@@ -97,8 +98,11 @@ class CafeController extends Controller
             'location' => ['required','string','max:255'],
             'currency' => ['required','string','max:255'],
             'tags' => ['required','string'],
-            "image" => ['required','file','image','size:2000']
+            "image" => ['required','file','image','max:2000']
         ]);
+        //upload image
+        $imageName = $uploadService->uploadImage("images\cafe\about",$data['image']);
+
         //create cafe
         $cafe = Cafe::create([
             'name' => $data['name'],
@@ -106,7 +110,7 @@ class CafeController extends Controller
             'state' => $data['state'],
             'location' => $data['location'],
             'currency' => $data['currency'],
-            "image" => $data['image']
+            "picture" => $imageName
         ]);
         if($cafe) {
             //create cafe tag
@@ -119,28 +123,26 @@ class CafeController extends Controller
                         'tagName' => $tag
                     ]);
                     if($tag) {
-                        Cafe_Tag::create([
+                        CafeTag::create([
                             'cafe' => $cafe->id,
-                            'tag' => $newTag
+                            'tag' => $newTag->id
                         ]);
                     }
                 }
             }
-
             //create cafe member
-            $cafeMember = Cafe_Member::create([
+            $cafeMember = CafeMember::create([
                 'cafe' => $cafe->id,
                 'user' => Auth::guard('api')->id(),
                 'right' => 'admin',
                 'status' => 'confirmed'
             ]);
-
             //create cafe wallet
-            $cafeWallet = $cafeService->createCafeWallet($cafe);
+            $cafeWallet = $cafeService->createCafeWallet($cafe,$user);
             //notify user
             $notify->createNotification(Auth::guard('api')->id(),"cafe",$cafe->id,$cafe->name.' was created by you.','/cafe/index?cafe='.$cafe->id);
             //get cafe details
-            $members = Cafe_Member::where('cafe',$cafe->id)->get();
+            $members = CafeMember::where('cafe',$cafe->id)->get();
             $customRequests = CafeCustomRequest::where('cafe',$cafe->id)->get();
             $cafeItems = CafeItem::where('cafe',$cafe)->get();
             return response()->json([
@@ -169,19 +171,19 @@ class CafeController extends Controller
             $display = 30;
             if($filter == 'menu') {
                 //get all cafe menu
-                $menus = Cafe_Menu::where('cafe',$cafe->id)->get();
+                $menus = CafeMenu::where('cafe',$cafe->id)->get();
                 if($menus) {
                     //get pages and start
                     $arr = $indexService->pagination($page,$start,$display,$menus);
                     $p = $arr['p'];
                     $s = $arr['s'];
-                    $result = Cafe_Menu::where('cafe',$cafe->id)->take($display)->skip($s)->get();
+                    $result = CafeMenu::where('cafe',$cafe->id)->take($display)->skip($s)->get();
                     if($result) {
                         return response()->json([
                             "result" => $result,
                             "cafe" => $cafe,
-                            'p' => $p,
-                            's' => $s
+                            'p' => (int)$p,
+                            's' => (int)$s
                         ],Response::HTTP_OK);
                     }else{
                         return response()->json([
@@ -197,19 +199,19 @@ class CafeController extends Controller
             }
             elseif($filter ==  'category') {
                 //get all cafe category
-                $categories = Cafe_Category::where('cafe',$cafe->id)->get();
+                $categories = CafeCategory::where('cafe',$cafe->id)->get();
                 if($categories) {
                     //get pages and start
                     $arr = $indexService->pagination($page,$start,$display,$categories);
                     $p = $arr['p'];
                     $s = $arr['s'];
-                    $result = Cafe_Category::where('cafe',$cafe->id)->take($display)->skip($s)->get();
+                    $result = CafeCategory::where('cafe',$cafe->id)->take($display)->skip($s)->get();
                     if($result) {
                         return response()->json([
                             "result" => $result,
                             "cafe" => $cafe,
-                            'p' => $p,
-                            's' => $s
+                            'p' => (int)$p,
+                            's' => (int)$s
                         ],Response::HTTP_OK);
                     }
                     else{
@@ -226,14 +228,14 @@ class CafeController extends Controller
             }
             elseif($filter == 'tag') {
                 //get cafe tags
-                $cafeTags = Cafe_Tag::where('cafe',$cafe->id)->get();
+                $cafeTags = CafeTag::where('cafe',$cafe->id)->get();
                 if($cafeTags) {
                     //get page and start
                     $arr = $indexService->pagination($page,$start,$display,$cafeTags);
                     $p = $arr['p'];
                     $s = $arr['s'];
-                    $results = Cafe_Tag::where('cafe',$cafe->id)->take($display)->skip($s)->get();
-                    if($result) {
+                    $results = CafeTag::where('cafe',$cafe->id)->take($display)->skip($s)->get();
+                    if($results) {
                         //get tags
                         $tags = [];
                         foreach($results as $result) {
@@ -242,8 +244,8 @@ class CafeController extends Controller
                         return response()->json([
                             "result" => $tags,
                             "cafe" => $cafe,
-                            'p' => $p,
-                            's' => $s
+                            'p' => (int)$p,
+                            's' => (int)$s
                         ],Response::HTTP_OK);
                     }
                     else{
@@ -260,19 +262,25 @@ class CafeController extends Controller
             }
             else {
                 //get items
-                $items = CafeItem::where('cafe',$cafe)->get();
+                $items = CafeItem::where([
+                    ['cafe',$cafe],
+                    ['status','set']
+                ])->get();
                 if($items) {
                     //get pages and start
                     $arr = $indexService->pagination($page,$start,$display,$items);
                     $p = $arr['p'];
                     $s = $arr['s'];
-                    $result = CcafeItem::where('cafe',$cafe)->take($display)->skip($s)->get();
+                    $result = CafeItem::where([
+                        ['cafe',$cafe],
+                        ['status','set']
+                    ])->take($display)->skip($s)->get();
                     if($result) {
                         return response()->json([
                             "result" => $result,
                             'cafe' => $cafe,
-                            'p' => $p,
-                            's' => $s
+                            'p' => (int)$p,
+                            's' => (int)$s
                         ],Response::HTTP_OK);
                     }
                     return response()->json([
@@ -302,11 +310,11 @@ class CafeController extends Controller
         $cafe = $request->query('cafe');
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
         if($cafe) {
-            $requests = Cafe_Member::where(
+            $requests = CafeMember::where([
                 ['cafe',$cafe->id],
                 ['status','pending'],
                 ['requestType','join']
-            )
+            ])
             ->get();
             if($requests) {
                 //get page and start
@@ -317,11 +325,11 @@ class CafeController extends Controller
                 $p = $arr['p'];
                 $s = $arr['s'];
                 //paginate result
-                $result = Cafe_Member::where(
+                $result = CafeMember::where([
                     ['cafe',$cafe->id],
                     ['status','pending'],
                     ['requestType','join']
-                )
+                ])
                 ->take($display)
                 ->skip($s)
                 ->get();
@@ -329,8 +337,8 @@ class CafeController extends Controller
                     return response()->json([
                         "result" => $result,
                         'cafe' => $cafe,
-                        'p' => $p,
-                        's' => $s
+                        'p' => (int)$p,
+                        's' => (int)$s
                     ],Response::HTTP_OK);
                 }
                 else{
@@ -364,11 +372,11 @@ class CafeController extends Controller
         $cafe = $request->query('cafe');
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
         if($cafe) {
-            $requests = Cafe_Member::where(
+            $requests = CafeMember::where([
                 ['cafe',$cafe->id],
                 ['status','pending'],
                 ['requestType','invite']
-            )
+            ])
             ->get();
             if($requests) {
                 //get page and start
@@ -379,11 +387,11 @@ class CafeController extends Controller
                 $p = $arr['p'];
                 $s = $arr['s'];
                 //paginate result
-                $result = Cafe_Member::where(
+                $result = CafeMember::where([
                     ['cafe',$cafe->id],
                     ['status','pending'],
                     ['requestType','invite']
-                )
+                ])
                 ->take($display)
                 ->skip($s)
                 ->get();
@@ -434,21 +442,23 @@ class CafeController extends Controller
                 $user = Auth::guard('api')->user();
                 if($user) {
                     //authorize user
-                    if(Cafe_Member::where(
+                    if(CafeMember::where([
                         ['cafe',$cafe->id],
                         ['right','admin'],
                         ['user',$user->id],
                         ['status','confirmed']
-                    )) {
+                    ])
+                    ->first()
+                    ) {
                         $update = $joinRequest->update([
                             "status" => "confirmed"
                         ]);
                         if($update) {
                             //get cafe_members
-                            $cafeMembers = Cafe_Member::where(
+                            $cafeMembers = CafeMember::where([
                                 ['cafe',$cafe->id],
                                 ['status','confirmed']
-                            )
+                            ])
                             ->get();
                             foreach($cafeMembers as $member) {
                                 if($member->user()->first()->id == $user->id) {
@@ -510,17 +520,19 @@ class CafeController extends Controller
                 $user = Auth::guard('api')->user();
                 if($user) {
                     //authorize user
-                    if(Cafe_Member::where(
+                    if(CafeMember::where([
                         ['cafe',$cafe->id],
                         ['right','admin'],
                         ['user',$user->id],
                         ['status','confirmed']
-                    )) {
+                    ])
+                    ->first()
+                    ) {
                         //get notifications and delete
-                        $notifications = Notification::where(
+                        $notifications = Notification::where([
                             ['type','joinRequest'],
                             ['id',$joinRequest->id]
-                        )
+                        ])
                         ->get();
                         foreach($notifications as $notify) {
                             $notify->delete();
@@ -569,13 +581,20 @@ class CafeController extends Controller
             $user = Auth::guard('api')->user();
             if($user) {
                 //authorize user
-                if(Cafe_Member::where(
+                if(CafeMember::where([
                     ['cafe',$cafe->id],
                     ['right','admin'],
                     ['user',$user->id],
                     ['status','confirmed']
-                )) {
-                    $mail = Mail::send(new InviteMail($request));
+                ])
+                ->first()
+                ) {
+                    //set content
+                    $content = [
+                        "email" => $request->email,
+                        "url" => "http://www.mobileDish.com/cafe/invite?email=".$request->email
+                    ];
+                    $mail = Mail::send(new InviteMail($content));
                     if($mail) {
                         return response()->json([
                             "error" => "Mail sent"

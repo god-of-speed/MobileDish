@@ -15,6 +15,9 @@ class CreateCafeWalletsTable extends Migration
     {
         Schema::create('cafe_wallets', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('cafe')->unsigned();
+            $table->bigInteger('user1')->unsigned();
+            $table->bigInteger('user2')->unsigned()->nullable();
             $table->foreign('cafe')->references('id')->on('cafes');
             $table->string('availableBal');
             $table->string('previousBal');

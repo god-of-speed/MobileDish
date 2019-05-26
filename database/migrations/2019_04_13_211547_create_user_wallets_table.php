@@ -15,6 +15,7 @@ class CreateUserWalletsTable extends Migration
     {
         Schema::create('user_wallets', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('user')->unsigned();
             $table->foreign('user')->references('id')->on('users');
             $table->string('availableBal');
             $table->string('previousBal');

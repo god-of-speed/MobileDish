@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Cafe;
+use App\CafeMember;
 use App\CafeWallet;
-use App\Cafe_Member;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,20 +20,20 @@ class CafeWalletController extends Controller
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
         if($cafe) {
             //get user
-            $user = Auth::guard('api')-user();
+            $user = Auth::guard('api')->user();
             if($user) {
                 //get cafe admins
-                $admin = Cafe_Member::where(
+                $admin = CafeMember::where([
                     ['cafe',$cafe->id],
                     ['user',$user->id],
                     ['right','admin'],
                     ['status','confirmed']
-                )
+                ])
                 ->first();
                 if($admin) {
-                    $cafeWallet = CafeWallet::where(
+                    $cafeWallet = CafeWallet::where([
                         ['cafe',$cafe->id]
-                    )
+                    ])
                     ->get();
                     if($cafeWallet) {
                         return response()->json([
@@ -50,18 +51,6 @@ class CafeWalletController extends Controller
                     return response()->json([
                         "error" => "Forbidden"
                     ],Response::HTTP_FORBIDDEN);
-                }
-                $cafeWallet = CafeWallet::where('cafe',$cafe->id)->get();
-                if($cafeWallet) {
-                    return response()->json([
-                        "cafeWallet" => $cafeWallet,
-                        "cafe" => $cafe
-                    ],Response::HTTP_OK);
-                }
-                else{
-                    return response()->json([
-                        "error" => "Internal server error"
-                    ],Response::HTTP_INTERNAL_SERVER_ERROR);
                 }
             }
             else{

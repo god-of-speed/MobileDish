@@ -15,15 +15,14 @@ class CreateCafeMembersTable extends Migration
     {
         Schema::create('cafe_members', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('cafe')->unsigned();
+            $table->bigInteger('user')->unsigned();
             $table->foreign('cafe')->references('id')->on('cafes');
             $table->foreign('user')->references('id')->on('users');
             $table->string('right')->default('member');
             $table->string('status')->default('pending');
-            $table->string('requestType');
-            $table->string('payment')->nullable();
-            $table->string('interval')->nullable();
-            $table->datetime('startPayDate')->nullable();
-            $table->datetime('lastPayDate')->nullable();
+            $table->string('requestType')->nullable();
+            $table->softDeletes();
             $table->timestamps();
         });
     }

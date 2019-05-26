@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Cafe;
-use App\Cafe_Member;
+use App\User;
+use App\CafeMember;
 use Illuminate\Http\Request;
-use App\Service\IndexService;
-use App\Service\NotificationService;
+use App\Http\Service\IndexService;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Service\NotificationService;
+use Symfony\Component\HttpFoundation\Response;
 
 class CafeMemberController extends Controller
 {
@@ -21,11 +23,11 @@ class CafeMemberController extends Controller
         if($cafe) {
             //get user
             $user = Auth::guard('api')->user();
-            if(Cafe_Member::where(
+            if(CafeMember::where([
                 ['user',$user->id],
                 ['cafe',$cafe->id],
                 ['status','!=','declined']
-            )->first()) {
+            ])->first()) {
                 return response()->json(true,Response::HTTP_OK);
             }else{
                 return response()->json(false,Response::HTTP_OK);
@@ -54,14 +56,14 @@ class CafeMemberController extends Controller
             $user = Auth::guard('api')->user();
             if($user) {
                 //check if user has requested or is in a cafe
-                $alreadyExist = Cafe_Member::where(
+                $alreadyExist = CafeMember::where([
                     ['cafe',$cafe->id],
                     ['user',$user->id],
                     ['status','!=','declined']
-                )->first();
+                ])->first();
                 if(!$alreadyExist) {
                     //create cafe member
-                    $cafeMember = Cafe_Member::create([
+                    $cafeMember = CafeMember::create([
                         'cafe' => $cafe->id,
                         'user' => $user->id,
                         'right' => 'member',
@@ -71,10 +73,10 @@ class CafeMemberController extends Controller
                         //notify user
                         $notifyUser = $notify->createNotification($user->id,'Employment Request sent to'.$cafe->name,'user/request');
                         //get all the admin of the cafe
-                        $admins = Cafe_Member::where(
+                        $admins = CafeMember::where([
                             ['cafe',$cafe->id],
                             ['right','admin']
-                        )->get();
+                        ])->get();
                         foreach($admins as $admin) {
                             $notifyAdmin = $notify->createNotification($admin->user()->first()->id,"cafeMember",$cafeMember->id,$user->username.' sent an employment request.','/cafe/request?cafe='.$cafe->id);
                         }
@@ -108,24 +110,27 @@ class CafeMemberController extends Controller
     public function makeAdmin(Request $request,NotificationService $notify) {
         //get user
         $user = Auth::guard('api')->user();
+        //get admin 
+        $admin = $request->query('user');
+        $admin = $admin == null && !is_int($admin) ? false : User::find($admin);
         //get cafe
         $cafe = $request->query('cafe');
         //get cafe
         $cafe = Cafe::find($cafe);
         if($cafe) {
             //get cafe members that are admin
-            $cafeMembers = Cafe_Member::where(
+            $cafeMembers = CafeMember::where([
                 ['cafe',$cafe],
                 ['status','confirmed'],
                 ['right','admin']
-            )->get();
-            if(count($cafeMembers) < 3) {
-                //get cafe member where user is a member
-                $member = Cafe_Member::where(
+            ])->get();
+            if(count($cafeMembers) == 0) {
+                //get cafe member where individual is a member
+                $member = CafeMember::where([
                     ['user',$user->id],
                     ['status','confirmed'],
                     ['right','member']
-                )->get();
+                ])->first();
                 if($member) {
                     $updateMember = $member->update(['right' => 'admin']);
                     if($updateMember) {
@@ -134,10 +139,45 @@ class CafeMemberController extends Controller
                         ],Response::HTTP_CREATED);
                     }
                 }
+                return response()->json([
+                    'error' => 'Error.'
+                ],Response::HTTP_INTERNAL_SERVER_ERROR);
             }
-            return response()->json([
-                'error' => 'Error.'
-            ],Response::HTTP_INTERNAL_SERVER_ERROR);
+            else{
+                if(CafeMember::where([
+                    ['user',$user->id],
+                    ['status','confirmed'],
+                    ['right','admin']
+                ])->first()) {
+                    if($admin) {
+                        //get cafe member where individual is a member
+                        $member = CafeMember::where([
+                            ['user',$admin->id],
+                            ['status','confirmed'],
+                            ['right','member']
+                        ])->first();
+                        if($member) {
+                            $updateMember = $member->update(['right' => 'admin']);
+                            if($updateMember) {
+                                return response()->json([
+                                    'member' => $member
+                                ],Response::HTTP_CREATED);
+                            }
+                        }
+                        return response()->json([
+                            'error' => 'Error.'
+                        ],Response::HTTP_INTERNAL_SERVER_ERROR);
+                    }
+                    else{
+                        return response()->json([
+                            "error" => "User doesn't exist"
+                        ],Response::HTTP_BAD_REQUEST);
+                    }
+                }
+                return response()->json([
+                    "error" => "No right"
+                ],Response::HTTP_FORBIDDEN);
+            }
         }
         return response()->json([
             'error' => 'Resource not found.'
@@ -156,12 +196,12 @@ class CafeMemberController extends Controller
         $cafe = Cafe::find($cafe);
         if($cafe) {
             //check if user is actually an admin
-            $admin = Cafe_Member::where(
+            $admin = CafeMember::where([
                 ['user',$user->id],
-                ['cafe',$cafe],
+                ['cafe',$cafe->id],
                 ['status','confirmed'],
                 ['right','admin']
-            )->first();
+            ])->first();
             if($admin) {
                 $updateMember = $admin->update(['right'=>'member']);
                 if($updateMember) {
@@ -192,18 +232,18 @@ class CafeMemberController extends Controller
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
         if($cafe) {
             //validate user
-            if(Cafe_Member::where(
+            if(CafeMember::where([
                 ['cafe',$cafe->id],
-                ['user',Auth::guard('api')->id],
+                ['user',Auth::guard('api')->id()],
                 ['status','confirmed']
-            )
+            ])
             ->first()
             ) {
                 //get cafe members
-                $members = Cafe_Member::where(
-                    ['cafe',$cafe],
+                $members = CafeMember::where([
+                    ['cafe',$cafe->id],
                     ['status','confirmed']
-                )
+                ])
                 ->get();
                 if($members) {
                     //get page and start
@@ -215,15 +255,17 @@ class CafeMemberController extends Controller
                     $s = $arr['s'];
                     if($arr) {
                         //paginate result
-                        $result = Cafe_Member::where(
-                            ['cafe',$cafe],
+                        $result = CafeMember::where([
+                            ['cafe',$cafe->id],
                             ['status','confirmed']
-                        )
+                        ])
                         ->take($display)
                         ->skip($s)
                         ->get();
                         return response()->json([
-                            "result" => $result
+                            "result" => $result,
+                            "p" => $p,
+                            "s" => $s
                         ],Response::HTTP_OK);
                     }
                     else{

@@ -15,8 +15,10 @@ class CreateCafeSubscriptionsTable extends Migration
     {
         Schema::create('cafe_subscriptions', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('cafe')->unsigned();
+            $table->bigInteger('user')->unsigned();
             $table->foreign('cafe')->references('id')->on('cafes');
-            $table->foreign('subscriber')->references('id')->on('users');
+            $table->foreign('user')->references('id')->on('users');
             $table->timestamps();
         });
     }

@@ -15,6 +15,7 @@ class CreateDeliverersTable extends Migration
     {
         Schema::create('deliverers', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('user')->unsigned();
             $table->foreign('user')->references('id')->on('users');
             $table->string('driverLicense')->nullable();
             $table->string('asset');

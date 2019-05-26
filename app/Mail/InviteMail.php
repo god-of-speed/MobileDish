@@ -12,16 +12,16 @@ class InviteMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $email;
+    public $content;
 
     /**
      * Create a new message instance.
      *
      * @return void
      */
-    public function __construct(Request $request)
+    public function __construct($content)
     {
-        $this->email = $request;
+        $this->content = $content;
     }
 
     /**
@@ -32,7 +32,11 @@ class InviteMail extends Mailable
     public function build()
     {
         return $this->subject("INVITATION")
-                    ->to($this->email->email)
-                    ->view('Email.invite');
+                    ->to($this->content->email)
+                    ->view('Email.invite')
+                    ->with([
+                        "cafe" => $content->cafe,
+                        "url" => $content->url
+                    ]);
     }
 }

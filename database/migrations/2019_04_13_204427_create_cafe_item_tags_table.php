@@ -15,6 +15,8 @@ class CreateCafeItemTagsTable extends Migration
     {
         Schema::create('cafe_item_tags', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('item')->unsigned();
+            $table->bigInteger('tag')->unsigned();
             $table->foreign('item')->references('id')->on('cafe_items');
             $table->foreign('tag')->references('id')->on('tags');
             $table->timestamps();

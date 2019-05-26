@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\User;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
@@ -65,7 +66,7 @@ class LoginController extends Controller
             ],Response::HTTP_UNAUTHORIZED);
         }
         //create userTokenn
-        $userToken = $exist->createToken('Personal Access Token');
+        $userToken = $exist->createToken('Password grant client');
         $token = $userToken->token;
         $token->save();
 

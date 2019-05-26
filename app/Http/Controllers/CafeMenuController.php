@@ -4,14 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Cafe;
 use App\CafeItem;
-use App\Cafe_Menu;
-use App\Cafe_Member;
-use App\Cafe_Category;
+use App\CafeMenu;
+use App\CafeMember;
+use App\CafeCategory;
 use Illuminate\Http\Request;
-use App\Service\IndexService;
-use App\Service\SecurityService;
-use App\Service\NotificationService;
+use App\Http\Service\IndexService;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Service\SecurityService;
+use App\Http\Service\NotificationService;
 use Symfony\Component\HttpFoundation\Response;
 
 class CafeMenuController extends Controller
@@ -24,7 +24,7 @@ class CafeMenuController extends Controller
         if($cafe) {
             $menu = $request->query('menu');
             //get menu
-            $menu = $menu == null && !is_int($menu) ? false : Cafe_Menu::find($menu);
+            $menu = $menu == null && !is_int($menu) ? false : CafeMenu::find($menu);
         }
         $filter = $request->query('filter');
         $page = $request->query('p');
@@ -32,20 +32,20 @@ class CafeMenuController extends Controller
         $display = 30;
         if($cafe && $menu) {
             if($filter == 'category') {
-                $categories = Cafe_Category::where(
+                $categories = CafeCategory::where([
                     ['cafe',$cafe->id],
                     ['menu',$menu->id]
-                )
+                ])
                 ->get();
                 if($categories){
                     //get pages and start
                     $arr = $indexService->pagination($page,$start,display,$categories);
                     $p = $arr['p'];
                     $s = $arr['s'];
-                    $result = Cafe_Category::where(
+                    $result = CafeCategory::where([
                         ['cafe',$cafe->id],
                         ['menu',$menu->id]
-                    )
+                    ])
                     ->take($display)
                     ->skip($s)
                     ->get();
@@ -54,8 +54,8 @@ class CafeMenuController extends Controller
                             "result" => $result,
                             "cafe" => $cafe,
                             "menu" => $menu,
-                            'p' => $p,
-                            's' => $s
+                            'p' => (int)$p,
+                            's' => (int)$s
                         ],Response::HTTP_OK);
                     }
                     else{
@@ -72,20 +72,22 @@ class CafeMenuController extends Controller
             }
             else{
                 //get items
-                $items = CafeItem::where(
+                $items = CafeItem::where([
                     ['cafe',$cafe->id],
-                    ['menu',$menu->id]
-                )
+                    ['menu',$menu->id],
+                    ['status','set']
+                ])
                 ->get();
                 if($items) {
                     //get pages and start
                     $arr = $indexService->pagination($page,$start,$display,$items);
                     $p = $arr['p'];
                     $s = $arr['s'];
-                    $result = CafeItem::where(
+                    $result = CafeItem::where([
                         ['cafe',$cafe->id],
-                        ['menu',$menu->id]
-                    )
+                        ['menu',$menu->id],
+                        ['status','set']
+                    ])
                     ->take($display)
                     ->skip($s)
                     ->get();
@@ -94,8 +96,8 @@ class CafeMenuController extends Controller
                             "result" => $result,
                             "cafe" => $cafe,
                             "menu" => $menu,
-                            'p' => $p,
-                            's' => $s
+                            'p' => (int)$p,
+                            's' => (int)$s
                         ],Response::HTTP_OK);
                     }
                     else{
@@ -123,22 +125,22 @@ class CafeMenuController extends Controller
     /**
      * create menu 
     */
-    public function create (Request $request,SecurityService $securityService) {
+    public function create (Request $request) {
         //get cafe
         $cafe = $request->query('cafe');
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
         if($cafe) {
             if(Auth::guard('api')->user()) {
                 //get cafe admin
-                $admins = Cafe_Member::where(
+                $admin = CafeMember::where([
                     ['cafe',$cafe->id],
-                    ['right','admin']
-                )
-                ->get();
-                if($securityService->checkUserIsAdmin(Auth::guard('api')->id(),$admins)) {
+                    ['right','admin'],
+                    ['user',Auth::guard('api')->id()]
+                ])
+                ->first();
+                if($admin) {
                     return response()->json(
                             true,
-                            ['cafe' => $cafe],
                             Response::HTTP_OK);
                 }
                 else{
@@ -164,30 +166,26 @@ class CafeMenuController extends Controller
      * edit menu
      *
      */
-    public function edit(Request $request,SecurityService $securityService) {
+    public function edit(Request $request) {
         //get cafe
         $cafe = $request->query('cafe');
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe); 
         if($cafe) {
             //get menu
             $menu = $request->query('menu');
-            $menu = $menu == null && !is_int($menu) ? false : Cafe_Menu::where(
-                ['cafe', $cafe->id],
-                ['id',$menu->id]
-            )
-            ->get();
+            $menu = $menu == null && !is_int($menu) ? false : Cafe_Menu::find($menu);
             if($menu) {
                 if(Auth::guard('api')->user()) {
                     //get cafe admin
-                    $admins = Cafe_Member::where(
+                    $admin = CafeMember::where(
                         ['cafe',$cafe->id],
-                        ['right','admin']
+                        ['right','admin'],
+                        ['user',Auth::guard('api')->id()]
                     )
-                    ->get();
-                    if($securityService->checkUserIsAdmin(Auth::guard('api')->id(),$admins)) {
+                    ->first();
+                    if($admin) {
                         return response()->json(
                                 true,
-                                ['menu' => $menu],
                                 Response::HTTP_OK);
                     }
                     else{
@@ -225,30 +223,31 @@ class CafeMenuController extends Controller
         if($cafe) {
             if(Auth::guard('api')->user()) {
                 //get cafe admin
-                $admins = Cafe_Member::where(
+                $admin = CafeMember::where([
                     ['cafe',$cafe->id],
-                    ['right','admin']
-                )
-                ->get();
-                if($securityService->checkUserIsAdmin(Auth::guard('api')->id(),$admins)) {
+                    ['right','admin'],
+                    ['user',Auth::guard('api')->id()]
+                ])
+                ->first();
+                if($admin) {
                     $request->validate([
                         'name' => ['required','string','max:255'],
                         'description' => ['string']
                     ]);
-                    //get post request
-                    $name = $request->only('name');
-                    $description = $request->only('description') == null ? null : $request->only('description');
+                    //get data
+                    $data = $request->only('name','description');
                     //create menu
-                    $menu = Cafe_Menu::create([
-                        "name" => $name,
-                        "abouts" => $description,
+                    $menu = CafeMenu::create([
+                        "name" => $data['name'],
+                        "about" => $data['description'],
                         "cafe" => $cafe->id
                     ]);
                     //get cafe members
-                    $cafeMembers = Cafe_Member::where(
+                    $cafeMembers = CafeMember::where([
                         ['cafe',$cafe->id],
                         ['status','confirmed']
-                    )->get();
+                    ])->get();
+    
                     //notify cafe members
                     foreach($cafeMembers as $cafeMember){
                         if($cafeMember->user()->first()->id == Auth::guard('api')->id()) {

@@ -15,8 +15,10 @@ class CreateCafeCustomRequestsTable extends Migration
     {
         Schema::create('cafe_custom_requests', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('cafe')->unsigned();
+            $table->bigInteger('user')->unsigned();
             $table->foreign('cafe')->references('id')->on('cafes');
-            $table->foriegn('user')->references('id')->on('users');
+            $table->foreign('user')->references('id')->on('users');
             $table->text('customRequest');
             $table->string('price');
             $table->string('duration');

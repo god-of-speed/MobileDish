@@ -13,12 +13,14 @@ class CreatePaymentsTable extends Migration
      */
     public function up()
     {
-        Schema::create('payments', function (Blueprint $table) {
+        Schema::create('transactions', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->string('subjectFrom')->nullable();
-            $table->integer('subjectFromId')->nullable();
-            $table->string('subjectTo');
-            $table->integer('subjectToId');
+            $table->bigInteger('user')->unsigned();
+            $table->foreign('user')->references('id')->on('users');
+            $table->bigInteger('cafe')->unsigned();
+            $table->foreign('cafe')->references('id')->on('cafes');
+            $table->string('transactType');
+            $table->integer('transactTypeId');
             $table->string('amount');
             $table->string('status')->nullable();
             $table->softDeletes();

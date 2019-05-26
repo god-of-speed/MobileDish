@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Cafe;
-use App\Cafe_Member;
+use App\CafeMember;
 use App\CafeCustomRequest;
 use Illuminate\Http\Request;
-use App\Service\IndexService;
+use App\Http\Service\IndexService;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -25,22 +25,25 @@ class CafeCustomRequestController extends Controller
             $start = $request->query('s');
             $display = 30;
             //get pending customRequests
-            $customRequests = CafeCustomRequest::where(
+            $customRequests = CafeCustomRequest::where([
                 ['cafe',$cafe->id],
                 ['userStatus','!=','end'],
                 ['userStatus',"!=","cancel"],
                 ['cafeStatus','!=','end'],
                 ['cafeStatus',"!=","cancel"]
-            )
+            ])
             ->orderBy('created_at','asc')
             ->get();
             $arr = $indexService->pagination($page,$start,$display,$customRequests);
             $p = $arr['p'];
             $s = $arr['s'];
-            $result = CafeCustomRequest::where(
+            $result = CafeCustomRequest::where([
                 ['cafe',$cafe->id],
-                ['status','!=','end']
-            )
+                ['userStatus','!=','end'],
+                ['userStatus',"!=","cancel"],
+                ['cafeStatus','!=','end'],
+                ['cafeStatus',"!=","cancel"]
+            ])
             ->orderBy('created_at','asc')
             ->take($display)
             ->skip($s)
@@ -72,7 +75,7 @@ class CafeCustomRequestController extends Controller
     /**
      * end customRequest
      */
-    public function endCustomRequest(Request $request) {
+    public function endCafeCustomRequest(Request $request) {
         //get cafe 
         $cafe = $request->query('cafe');
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
@@ -81,12 +84,12 @@ class CafeCustomRequestController extends Controller
             $user = Auth::guard('api')->user();
             if($user) {
                 //get admins
-                $admin = Cafe_Member::where(
+                $admin = CafeMember::where([
                     ['cafe',$cafe->id],
                     ['user',$user->id],
                     ['right','admin'],
                     ['status','confirmed']
-                )
+                ])
                 ->get();
                 if($admin) {
                     //get customRequest
@@ -136,7 +139,7 @@ class CafeCustomRequestController extends Controller
     /**
      * cancel customRequest
      */
-    public function cancelCustomRequest(Request $request) {
+    public function cancelCafeCustomRequest(Request $request) {
         //get cafe 
         $cafe = $request->query('cafe');
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
@@ -145,12 +148,12 @@ class CafeCustomRequestController extends Controller
             $user = Auth::guard('api')->user();
             if($user) {
                 //get admins
-                $admin = Cafe_Member::where(
+                $admin = CafeMember::where([
                     ['cafe',$cafe->id],
                     ['user',$user->id],
                     ['right','admin'],
                     ['status','confirmed']
-                )
+                ])
                 ->get();
                 if($admin) {
                     //get customRequest

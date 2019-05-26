@@ -5,15 +5,16 @@ namespace App\Http\Controllers;
 use App\Tag;
 use App\Cafe;
 use App\CafeItem;
-use App\Cafe_Menu;
-use App\Cafe_Member;
+use App\CafeMenu;
+use App\CafeMember;
 use App\CafeItemTag;
-use App\Cafe_Category;
+use App\CafeCategory;
 use Illuminate\Http\Request;
-use App\Service\IndexService;
 use App\Service\SecurityService;
-use App\Service\NotificationService;
+use App\Http\Service\IndexService;
+use App\Http\Service\UploadService;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Service\NotificationService;
 use Symfony\Component\HttpFoundation\Response;
 
 class CafeItemController extends Controller
@@ -52,22 +53,22 @@ class CafeItemController extends Controller
     /**
      * create item
      */
-    public function create (Request $request,SecurityService $securityService) {
+    public function create (Request $request) {
         //get cafe
         $cafe = $request->query('cafe');
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe);
         if($cafe) {
             if(Auth::guard('api')->user()) {
                 //get cafe admin
-                $admins = Cafe_Member::where(
+                $admin = CafeMember::where([
                     ['cafe',$cafe->id],
-                    ['right','admin']
-                )
-                ->get();
-                if($securityService->checkUserIsAdmin(Auth::guard('api')->id(),$admins)) {
+                    ['right','admin'],
+                    ['user',Auth::guard('api')->id()]
+                ])
+                ->first();
+                if($admin) {
                     return response()->json(
                             true,
-                            ['cafe' => $cafe],
                             Response::HTTP_OK);
                 }
                 else{
@@ -91,30 +92,26 @@ class CafeItemController extends Controller
     /**
      * edit item
      */
-    public function edit(Request $request,SecurityService $securityService) {
+    public function edit(Request $request) {
         //get cafe
         $cafe = $request->query('cafe');
         $cafe = $cafe == null && !is_int($cafe) ? false : Cafe::find($cafe); 
         if($cafe) {
             //get menu
             $item = $request->query('item');
-            $item = $item == null && !is_int($item) ? false : CafeItem::where(
-                ['cafe', $cafe->id],
-                ['id',$item->id]
-            )
-            ->get();
+            $item = $item == null && !is_int($item) ? false : CafeItem::find($item);
             if($item) {
                 if(Auth::guard('api')->user()) {
                     //get cafe admin
-                    $admins = Cafe_Member::where(
+                    $admin = CafeMember::where([
                         ['cafe',$cafe->id],
-                        ['right','admin']
-                    )
-                    ->get();
-                    if($securityService->checkUserIsAdmin(Auth::guard('api')->id(),$admins)) {
+                        ['right','admin'],
+                        ['user',Auth::guard('api')->id()]
+                    ])
+                    ->first();
+                    if($admin) {
                         return response()->json(
-                                true,
-                                ['item' => $item],
+                                [true,'item'=>$item],
                                 Response::HTTP_OK);
                     }
                     else{
@@ -144,51 +141,48 @@ class CafeItemController extends Controller
     /**
      * store item
      */
-    public function store(Request $request,NotificationService $notify) {
+    public function store(Request $request,UploadService $uploadService,NotificationService $notify) {
         //get cafe
         $cafe = $request->query('cafe');
         $cafe = $cafe == null && !is_int($cafe)? false : Cafe::find($cafe);
         if($cafe) {
             if(Auth::guard('api')->user()) {
                 //get cafe admin
-                $admins = Cafe_Member::where(
+                $admin = CafeMember::where([
                     ['cafe',$cafe->id],
-                    ['right','admin']
-                )
-                ->get();
-                if($securityService->checkUserIsAdmin(Auth::guard('api')->id(),$admins)) {
+                    ['right','admin'],
+                    ['user',Auth::guard('api')->id()]
+                ])
+                ->first();
+                if($admin) {
                     //check if menu is set
                     $menu = $request->query('menu');
-                    $menu = $menu == null && !is_int($menu) ? null : Cafe_Menu($menu);
+                    $menu = $menu == null && !is_int($menu) ? null : CafeMenu($menu);
+                    $menu = $menu == true ? $menu->id : null;
                     //check for category
                     $category = $request->query('category');
-                    $category = $category == null && !is_int($category) ? null : Cafe_Category::find($category);
+                    $category = $category == null && !is_int($category) ? null : CafeCategory::find($category);
+                    $category = $category == true ? $category->id : null;
                     //validate request
                     $request->validate([
                         "name" => ['required','string','max:255'],
                         "price" => ['required','numeric'],
                         "description" => ['string'],
-                        "image" => ['required','file','image','size:2000'],
+                        "image" => ['required','file','image','mimetypes:image/png,image/jpg','max:3000'],
                         'tags' => ['required','string'],
                         "discount" => ['numeric']
                     ]);
                     //get fields
-                    $data = $request->only('name','description','price','image','tags');
-                    $name = $data['name'];
-                    $price = (float) $data['price'];
-                    $description = $data['description'];
-                    $image = $data['image'];
-                    $discount = (float) $data['discount'];
-                    $oldPrice = (float) 0;
-
+                    $data = $request->only('name','description','price','image','tags','discount');
+                    //get imageName
+                    $imageName = $uploadService->uploadImage("images\cafe\items\about",$data['image']);
                     $item = CafeItem::create([
-                        "name" => $name,
-                        "price" => $price,
-                        "discount" => $discount,
-                        "oldPrice" => $oldPrice,
-                        "about" => $description,
-                        "image" => $image,
-                        "cafe" => $cafe,
+                        "name" => $data['name'],
+                        "price" => (float)$data['price'],
+                        "discount" => (float)$data['discount'],
+                        "about" => $data['description'],
+                        "image" => $imageName,
+                        "cafe" => $cafe->id,
                         "menu" => $menu,
                         "category" => $category
                     ]);
@@ -208,10 +202,10 @@ class CafeItemController extends Controller
                             }
                         }
                         //get cafe members
-                        $cafeMembers = Cafe_Member::where(
+                        $cafeMembers = CafeMember::where([
                             ['cafe',$cafe->id],
                             ['status','confirmed']
-                        )->get();
+                        ])->get();
                         //notify cafe members
                         foreach($cafeMembers as $cafeMember){
                             if($cafeMember->user()->first()->id == Auth::guard('api')->id()) {
@@ -222,9 +216,7 @@ class CafeItemController extends Controller
                         }
                         return response()->json([
                             "item" => $item,
-                            "cafe" => $cafe,
-                            "category" => $category,
-                            "menu" => $menu
+                            "cafe" => $cafe
                         ],Response::HTTP_CREATED);
                     }
                     else{

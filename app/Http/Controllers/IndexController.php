@@ -6,7 +6,7 @@ use App\Tag;
 use App\Cafe;
 use App\CafeItem;
 use Illuminate\Http\Request;
-use App\Service\IndexService;
+use App\Http\Service\IndexService;
 use Symfony\Component\HttpFoundation\Response;
 
 class IndexController extends Controller
@@ -28,8 +28,8 @@ class IndexController extends Controller
                 if($result) {
                     return response()->json([
                         'result' => $result,
-                        'p' => $p,
-                        's' => $s
+                        'p' => (int)$p,
+                        's' => (int)$s
                     ],Response::HTTP_OK);
                 }else{
                     return response()->json([
@@ -54,8 +54,8 @@ class IndexController extends Controller
                 if($result) {
                     return response()->json([
                         "result" => $result,
-                        'p' => $p,
-                        's' => $s
+                        'p' => (int)$p,
+                        's' => (int)$s
                     ],Response::HTTP_OK);
                 }else{
                     return response()->json([
@@ -71,18 +71,18 @@ class IndexController extends Controller
         }
         else{
             //get all items
-            $items = CafeItem::where('set',true)->get();
+            $items = CafeItem::where('status','set')->get();
             if($items) {
                 //get pages and start row
                 $arr = $indexService->pagination($pages,$start,$display,$items);
                 $p = $arr['p'];
                 $s = $arr['s'];
-                $result = CafeItem::take($display)->skip($s)->get();
+                $result = CafeItem::where('status','set')->take($display)->skip($s)->get();
                 if($result) {
                     return response()->json([
                         'result' => $result,
-                        'p' => $p,
-                        's' => $s
+                        'p' => (int)$p,
+                        's' => (int)$s
                     ],Response::HTTP_OK);
                 }else{
                     return response()->json([

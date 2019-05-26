@@ -15,9 +15,12 @@ class CreateCafePurchasesTable extends Migration
     {
         Schema::create('cafe_purchases', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('cafe')->unsigned();
+            $table->bigInteger('item')->unsigned();
+            $table->bigInteger('user')->unsigned();
             $table->foreign('cafe')->references('id')->on('cafes');
             $table->foreign('item')->references('id')->on('cafe_items');
-            $table->foreign('user')->references('id')->on('user');
+            $table->foreign('user')->references('id')->on('users');
             $table->string('userStatus')->default('start');
             $table->string('cafeStatus')->default('start');
             $table->integer('quantity')->default(0);
@@ -25,6 +28,7 @@ class CreateCafePurchasesTable extends Migration
             $table->string('country');
             $table->string('state');
             $table->string('location');
+            $table->softDeletes();
             $table->timestamps();
         });
     }

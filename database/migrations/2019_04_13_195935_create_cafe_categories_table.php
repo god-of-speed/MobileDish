@@ -15,6 +15,8 @@ class CreateCafeCategoriesTable extends Migration
     {
         Schema::create('cafe_categories', function (Blueprint $table) {
             $table->bigIncrements('id');
+            $table->bigInteger('cafe')->unsigned();
+            $table->bigInteger('menu')->unsigned();
             $table->foreign('cafe')->references('id')->on('cafes');
             $table->foreign('menu')->references('id')->on('cafe_menus')->nullable();
             $table->string('name');
